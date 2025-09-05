@@ -7,7 +7,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Course Materials Assistant</title>
-    <link rel="stylesheet" href="style.css?v=9">
+    <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
     <div class="container">
@@ -74,8 +74,25 @@
         </div>
     </div>
 
+    <!-- Course Content Modal -->
+    <div id="courseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Course Content</h2>
+                <span class="close" id="modalClose">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="modal-links">
+                    <a id="originalCourseLink" href="#" target="_blank" style="display: none;">View Original Course</a>
+                </div>
+                <div class="modal-text">
+                    <pre id="modalContent"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="script.js?v=9"></script>
+    <script src="script.js?v=10"></script>
 </body>
 </html>

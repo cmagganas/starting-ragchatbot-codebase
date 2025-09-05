@@ -6,6 +6,7 @@ let currentSessionId = null;
 
 // DOM elements
 let chatMessages, chatInput, sendButton, totalCourses, courseTitles;
+let courseModal, modalTitle, modalContent, modalClose, originalCourseLink;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,6 +16,13 @@ document.addEventListener('DOMContentLoaded', () => {
     sendButton = document.getElementById('sendButton');
     totalCourses = document.getElementById('totalCourses');
     courseTitles = document.getElementById('courseTitles');
+    
+    // Modal elements
+    courseModal = document.getElementById('courseModal');
+    modalTitle = document.getElementById('modalTitle');
+    modalContent = document.getElementById('modalContent');
+    modalClose = document.getElementById('modalClose');
+    originalCourseLink = document.getElementById('originalCourseLink');
     
     setupEventListeners();
     createNewSession();
@@ -37,6 +45,21 @@ function setupEventListeners() {
             chatInput.value = question;
             sendMessage();
         });
+    });
+    
+    // Modal close functionality
+    modalClose.addEventListener('click', closeModal);
+    courseModal.addEventListener('click', (e) => {
+        if (e.target === courseModal) {
+            closeModal();
+        }
+    });
+    
+    // Close modal with Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && courseModal.style.display === 'block') {
+            closeModal();
+        }
     });
 }
 
@@ -122,10 +145,16 @@ function addMessage(content, type, sources = null, isWelcome = false) {
     let html = `<div class="message-content">${displayContent}</div>`;
     
     if (sources && sources.length > 0) {
+        const clickableSources = sources.map(source => {
+            // Extract filename from source (usually in format like "course1_script.txt")
+            const filename = source.includes('.txt') ? source : `${source}.txt`;
+            return `<span class="clickable-source" onclick="openCourseModal('${filename}')">${source}</span>`;
+        }).join(', ');
+        
         html += `
             <details class="sources-collapsible">
                 <summary class="sources-header">Sources</summary>
-                <div class="sources-content">${sources.join(', ')}</div>
+                <div class="sources-content">${clickableSources}</div>
             </details>
         `;
     }
@@ -171,7 +200,10 @@ async function loadCourseStats() {
         if (courseTitles) {
             if (data.course_titles && data.course_titles.length > 0) {
                 courseTitles.innerHTML = data.course_titles
-                    .map(title => `<div class="course-title-item">${title}</div>`)
+                    .map((title, index) => {
+                        const filename = `course${index + 1}_script.txt`;
+                        return `<div class="course-title-item clickable" onclick="openCourseModal('${filename}')">${title}</div>`;
+                    })
                     .join('');
             } else {
                 courseTitles.innerHTML = '<span class="no-courses">No courses available</span>';
@@ -188,4 +220,39 @@ async function loadCourseStats() {
             courseTitles.innerHTML = '<span class="error">Failed to load courses</span>';
         }
     }
+}
+
+// Modal Functions
+async function openCourseModal(filename) {
+    try {
+        const response = await fetch(`${API_URL}/course/${filename}`);
+        if (!response.ok) throw new Error('Failed to load course content');
+        
+        const courseData = await response.json();
+        
+        // Update modal content
+        modalTitle.textContent = courseData.course_title || 'Course Content';
+        modalContent.textContent = courseData.content;
+        
+        // Update original course link if available
+        if (courseData.course_link) {
+            originalCourseLink.href = courseData.course_link;
+            originalCourseLink.style.display = 'inline-block';
+        } else {
+            originalCourseLink.style.display = 'none';
+        }
+        
+        // Show modal
+        courseModal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        
+    } catch (error) {
+        console.error('Error loading course content:', error);
+        alert('Failed to load course content. Please try again.');
+    }
+}
+
+function closeModal() {
+    courseModal.style.display = 'none';
+    document.body.style.overflow = 'auto';
 }
