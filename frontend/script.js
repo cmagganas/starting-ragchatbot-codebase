@@ -3,6 +3,7 @@ const API_URL = '/api';
 
 // Global state
 let currentSessionId = null;
+let currentRequest = null; // Track the current fetch request for cancellation
 
 // DOM elements
 let chatMessages, chatInput, sendButton, totalCourses, courseTitles;
@@ -24,15 +25,26 @@ document.addEventListener('DOMContentLoaded', () => {
 // Event Listeners
 function setupEventListeners() {
     // Chat functionality
-    sendButton.addEventListener('click', sendMessage);
+    sendButton.addEventListener('click', () => {
+        // Prevent multiple clicks if a request is already in progress
+        if (currentRequest) return;
+        sendMessage();
+    });
     chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage();
+        if (e.key === 'Enter') {
+            // Prevent multiple Enter presses if a request is already in progress
+            if (currentRequest) return;
+            sendMessage();
+        }
     });
     
     
     // Suggested questions
     document.querySelectorAll('.suggested-item').forEach(button => {
         button.addEventListener('click', (e) => {
+            // Prevent multiple clicks if a request is already in progress
+            if (currentRequest) return;
+            
             const question = e.target.getAttribute('data-question');
             chatInput.value = question;
             sendMessage();
@@ -45,6 +57,12 @@ function setupEventListeners() {
 async function sendMessage() {
     const query = chatInput.value.trim();
     if (!query) return;
+
+    // Cancel any existing request
+    if (currentRequest) {
+        currentRequest.abort();
+        currentRequest = null;
+    }
 
     // Disable input
     chatInput.value = '';
@@ -60,6 +78,10 @@ async function sendMessage() {
     chatMessages.scrollTop = chatMessages.scrollHeight;
 
     try {
+        // Create AbortController for request cancellation
+        const controller = new AbortController();
+        currentRequest = controller;
+
         const response = await fetch(`${API_URL}/query`, {
             method: 'POST',
             headers: {
@@ -68,7 +90,8 @@ async function sendMessage() {
             body: JSON.stringify({
                 query: query,
                 session_id: currentSessionId
-            })
+            }),
+            signal: controller.signal // Add abort signal
         });
 
         if (!response.ok) throw new Error('Query failed');
@@ -85,10 +108,14 @@ async function sendMessage() {
         addMessage(data.answer, 'assistant', data.sources);
 
     } catch (error) {
-        // Replace loading message with error
+        // Replace loading message with error (unless it was cancelled)
         loadingMessage.remove();
-        addMessage(`Error: ${error.message}`, 'assistant');
+        if (error.name !== 'AbortError') {
+            addMessage(`Error: ${error.message}`, 'assistant');
+        }
     } finally {
+        // Clear the current request
+        currentRequest = null;
         chatInput.disabled = false;
         sendButton.disabled = false;
         chatInput.focus();
