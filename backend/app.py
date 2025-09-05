@@ -51,6 +51,13 @@ class CourseStats(BaseModel):
     total_courses: int
     course_titles: List[str]
 
+class CourseContent(BaseModel):
+    """Response model for course content"""
+    filename: str
+    content: str
+    course_title: str
+    course_link: Optional[str] = None
+
 # API Endpoints
 
 @app.post("/api/query", response_model=QueryResponse)
@@ -82,6 +89,43 @@ async def get_course_stats():
             total_courses=analytics["total_courses"],
             course_titles=analytics["course_titles"]
         )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/course/{filename}", response_model=CourseContent)
+async def get_course_content(filename: str):
+    """Get the full content of a specific course file"""
+    try:
+        # Construct file path - remove .txt extension if present and re-add it
+        clean_filename = filename.replace('.txt', '')
+        file_path = f"../docs/{clean_filename}.txt"
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Course file not found")
+        
+        # Read the file content
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Extract course title and link from the content
+        lines = content.split('\n')
+        course_title = ""
+        course_link = None
+        
+        for line in lines:
+            if line.startswith("Course Title:"):
+                course_title = line.replace("Course Title:", "").strip()
+            elif line.startswith("Course Link:"):
+                course_link = line.replace("Course Link:", "").strip()
+            
+        return CourseContent(
+            filename=f"{clean_filename}.txt",
+            content=content,
+            course_title=course_title,
+            course_link=course_link
+        )
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Course file not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
